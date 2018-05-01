@@ -17,25 +17,30 @@ int main(int argc, char* argv[]) {
     unsigned int clitLen; // client internet socket address length
     char buf[2048];
 
+    // 引数が2個(1つは実行するファイル名のため、実質1つ)でなければ終了
     if ( argc != 2) {
         fprintf(stderr, "argument count mismatch error.\n");
         exit(EXIT_FAILURE);
     }
 
+    // 2つ目の引数(ポート番号)が文字列から数字に変換できなければ終了
     if ((servPort = (unsigned short) atoi(argv[1])) == 0) {
         fprintf(stderr, "invalid port number.\n");
         exit(EXIT_FAILURE);
     }
 
+    // socket()が正常に実行されなかった場合終了
     if ((servSock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ){
         perror("socket() failed.");
         exit(EXIT_FAILURE);
     }
 
+    // servSockAddrの設定
     memset(&servSockAddr, 0, sizeof(servSockAddr));
     servSockAddr.sin_family      = AF_INET;
     servSockAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servSockAddr.sin_port        = htons(servPort);
+
 
     if (bind(servSock, (struct sockaddr *) &servSockAddr, sizeof(servSockAddr) ) < 0 ) {
         perror("bind() failed.");
@@ -50,6 +55,10 @@ int main(int argc, char* argv[]) {
     // 応答用HTTPメッセージ作成
     memset(buf, 0, sizeof(buf));
     snprintf(buf, sizeof(buf),
+	 "HTTP/1.0 200 OK\r\n"
+	 "Content-Length: 20\r\n"
+	 "Content-Type: text/html\r\n"
+	 "\r\n"
 	 "HELLO\r\n");
 
     while(1) {
