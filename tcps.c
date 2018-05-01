@@ -15,6 +15,7 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in clitSockAddr; //client internet socket address
     unsigned short servPort; //server port number
     unsigned int clitLen; // client internet socket address length
+    char buf[2048];
 
     if ( argc != 2) {
         fprintf(stderr, "argument count mismatch error.\n");
@@ -46,6 +47,11 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // 応答用HTTPメッセージ作成
+    memset(buf, 0, sizeof(buf));
+    snprintf(buf, sizeof(buf),
+	 "HELLO\r\n");
+
     while(1) {
         clitLen = sizeof(clitSockAddr);
         if ((clitSock = accept(servSock, (struct sockaddr *) &clitSockAddr, &clitLen)) < 0) {
@@ -54,7 +60,9 @@ int main(int argc, char* argv[]) {
         }
 
         printf("connected from %s.\n", inet_ntoa(clitSockAddr.sin_addr));
-      close(clitSock);
+        send(clitSock, buf, (int)strlen(buf), 0);
+
+    //   close(clitSock);
     }
 
     return EXIT_SUCCESS;
