@@ -6,10 +6,11 @@
 #include <unistd.h> //close()
 
 #define QUEUELIMIT 5
+#define BUFSIZE 2048
 
 int startUp(unsigned short);
 void receiveRequest(int);
-void makeHttp(char*);
+void sendHttp(int);
 
 int main(int argc, char* argv[]) {
     unsigned short servPort; //server port number
@@ -70,7 +71,6 @@ void receiveRequest(int servSock) {
     int clitSock; //client socket descripter
     struct sockaddr_in clitSockAddr; //client internet socket address
     unsigned int clitLen; // client internet socket address length
-    char buf[2048];
 
     while(1) {
         clitLen = sizeof(clitSockAddr);
@@ -79,25 +79,46 @@ void receiveRequest(int servSock) {
             exit(EXIT_FAILURE);
         }
 
-        printf("connected from %s.\n", inet_ntoa(clitSockAddr.sin_addr));
-        makeHttp(buf);
-        printf("%c",buf[0]);
-        printf("%c",buf[1]);
-        printf("%c",buf[2]);
-        printf("%c",buf[3]);
-        send(clitSock, buf, (int)strlen(buf), 0);
-
+        printf("connected from %s.tmp\n", inet_ntoa(clitSockAddr.sin_addr));
+        sendHttp(clitSock);
     //   close(clitSock);
     }
 }
 
- void makeHttp(char buf[]){
-     // 応答用HTTPメッセージ作成
-    memset(buf, 0, sizeof(buf));
-    snprintf(buf, sizeof(buf),
+ void sendHttp(int clitSock){
+    char buf[BUFSIZE];
+    char recieveBuf[BUFSIZE];
+
+    // メソッド名を格納する
+    char method[16];
+
+    // 接続相手のアドレスを格納する
+    char uri_addr[256];
+
+    // HTTP Versionを格納する
+    char http_ver[64];
+
+    if (read(clitSock, recieveBuf, BUFSIZE) <= 0) {
+        fprintf(stderr, "error: reading a request.\n");
+    } else {
+        sscanf(buf, "%s %s %s", method, uri_addr, http_ver);
+        printf("method : %s\n", method);
+        printf("uri_addr : %s\n", uri_addr);
+        printf("http_ver : %s\n", http_ver);
+
+        // `GET`メソッドのみ受け付ける
+        if (strcmp(method, "GET") != 0) {
+            printf("501 Not implemented.");
+        }
+    }
+
+    memset(buf, 0, sizeof(char) * BUFSIZE);
+    snprintf(buf, sizeof(char) * BUFSIZE,
 	 "HTTP/1.0 200 OK\r\n" // レスポンスヘッダ
 	 "Content-Length: 20\r\n" // 各種ヘッダ
 	 "Content-Type: text/html\r\n" // 各種ヘッダ
 	 "\r\n" // 空行
 	 "HELLO\r\n"); // ボディ
+
+     send(clitSock, buf, (int)strlen(buf), 0);
  }
