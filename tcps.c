@@ -7,6 +7,7 @@
 
 #define QUEUELIMIT 5
 #define BUFSIZE 2048
+char *DOCUMENT_ROOT = "C:/Users/HAYATO/Desktop/GItHub/kensyu_http_server/html";
 
 int startUp(unsigned short);
 void receiveRequest(int);
@@ -81,44 +82,53 @@ void receiveRequest(int servSock) {
 
         printf("connected from %s.tmp\n", inet_ntoa(clitSockAddr.sin_addr));
         sendHttp(clitSock);
-    //   close(clitSock);
+        close(clitSock);
     }
 }
 
  void sendHttp(int clitSock){
     char buf[BUFSIZE];
     char recieveBuf[BUFSIZE];
-
-    // メソッド名を格納する
-    char method[16];
-
-    // 接続相手のアドレスを格納する
-    char uri_addr[256];
-
-    // HTTP Versionを格納する
-    char http_ver[64];
+    char method[16]; // メソッド名
+    char uriAddr[256]; // urlのアドレス
+    char httpVer[64]; // HTTP Version
+    char fileDir[256];
+    FILE *file;
 
     if (read(clitSock, recieveBuf, BUFSIZE) <= 0) {
         fprintf(stderr, "error: reading a request.\n");
     } else {
-        sscanf(buf, "%s %s %s", method, uri_addr, http_ver);
+        sscanf(recieveBuf, "%s %s %s", method, uriAddr, httpVer);
         printf("method : %s\n", method);
-        printf("uri_addr : %s\n", uri_addr);
-        printf("http_ver : %s\n", http_ver);
-
-        // `GET`メソッドのみ受け付ける
-        if (strcmp(method, "GET") != 0) {
-            printf("501 Not implemented.");
+        printf("uriAddr : %s\n", uriAddr);
+        printf("httpVer : %s\n", httpVer);
+        memset(fileDir, 0, sizeof(fileDir));
+        snprintf(fileDir, sizeof(fileDir), "%s%s",DOCUMENT_ROOT, uriAddr); // ボディ
+        printf("file dir : %s\n",  fileDir);
+        file = fopen(fileDir , "r");
+        
+        if (file == NULL) {
+            printf("NULL\n");
+            memset(buf, 0, sizeof(char) * BUFSIZE);
+            snprintf(buf, sizeof(char) * BUFSIZE,
+                "HTTP/1.0 404 Not Found\r\n" // レスポンスヘッダ
+                "Content-Length: 20\r\n" // 各種ヘッダ
+                "Content-Type: text/html\r\n" // 各種ヘッダ
+                "\r\n" // 空行
+                "404 Not Found\r\n"
+                );
+            send(clitSock, buf, (int)strlen(buf), 0);
+        } else {
+            printf("Exist\n");
+            memset(buf, 0, sizeof(char) * BUFSIZE);
+            snprintf(buf, sizeof(char) * BUFSIZE,
+                "HTTP/1.0 200 OK\r\n" // レスポンスヘッダ
+                "Content-Length: 20\r\n" // 各種ヘッダ
+                "Content-Type: text/html\r\n" // 各種ヘッダ
+                "\r\n" // 空行
+                "HELLO\r\n"); // ボディ
+            send(clitSock, buf, (int)strlen(buf), 0);
         }
+        fclose(file);
     }
-
-    memset(buf, 0, sizeof(char) * BUFSIZE);
-    snprintf(buf, sizeof(char) * BUFSIZE,
-	 "HTTP/1.0 200 OK\r\n" // レスポンスヘッダ
-	 "Content-Length: 20\r\n" // 各種ヘッダ
-	 "Content-Type: text/html\r\n" // 各種ヘッダ
-	 "\r\n" // 空行
-	 "HELLO\r\n"); // ボディ
-
-     send(clitSock, buf, (int)strlen(buf), 0);
  }
