@@ -95,7 +95,7 @@ void receiveRequest(int servSock) {
 
         printf("connected from %s.tmp\n", inet_ntoa(clitSockAddr.sin_addr));
         sendHttp(clitSock);
-    //   close(clitSock);
+        close(clitSock);
     }
 }
 
@@ -104,19 +104,19 @@ void receiveRequest(int servSock) {
     char buf[BUFSIZE];
     char recieveBuf[BUFSIZE];
     char method[16];
-    char uri_addr[256];
-    char http_ver[64];
+    char uriAddr[256];
+    char httpVer[64];
     char fileDir[256];
     int fileDesc;
 
     if (read(clitSock, recieveBuf, BUFSIZE) <= 0) {
         fprintf(stderr, "error: reading a request.\n");
     } else {
-        sscanf(recieveBuf, "%s %s %s", method, uri_addr, http_ver);
-        printf("uri_addr : %s\n", uri_addr);
+        sscanf(recieveBuf, "%s %s %s", method, uriAddr, httpVer);
+        printf("uriAddr : %s\n", uriAddr);
 
         memset(fileDir, 0, sizeof(fileDir));
-        snprintf(fileDir, sizeof(fileDir), "%s%s",DOCUMENT_ROOT, uri_addr);
+        snprintf(fileDir, sizeof(fileDir), "%s%s",DOCUMENT_ROOT, uriAddr);
         if (fileDir[strlen(fileDir) - 1] == '/') {
             snprintf(fileDir, sizeof(fileDir), "%s%s",fileDir, "index.html");
         }
