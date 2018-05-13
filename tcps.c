@@ -1,5 +1,6 @@
 #include <stdio.h> //printf(), fprintf(), perror()
 #include <sys/socket.h> //socket(), bind(), accept(), listen()
+#include <sys/fcntl.h> // O_RDONLY
 #include <arpa/inet.h> // struct sockaddr_in, struct sockaddr, inet_ntoa()
 #include <stdlib.h> //atoi(), exit(), EXIT_FAILURE, EXIT_SUCCESS
 #include <string.h> //memset()
@@ -7,24 +8,36 @@
 
 #define QUEUELIMIT 5
 #define BUFSIZE 2048
+unsigned short servPort = 8080;
 char *DOCUMENT_ROOT = "C:/Users/HAYATO/Desktop/GItHub/kensyu_http_server/html";
 
 int startUp(unsigned short);
 void receiveRequest(int);
 void sendHttp(int);
+int sendMessage(int, char *);
+
 
 int main(int argc, char* argv[]) {
-    unsigned short servPort; //server port number
     int servSock; //server socket descripter
-    // 引数が2個(1つは実行するファイル名のため、実質1つ)でなければ終了
-    if ( argc != 2) {
-        fprintf(stderr, "argument count mismatch error.\n");
-        exit(EXIT_FAILURE);
-    }
-    // 2つ目の引数(ポート番号)が文字列から数字に変換できなければ終了
-    if ((servPort = (unsigned short) atoi(argv[1])) == 0) {
-        fprintf(stderr, "invalid port number.\n");
-        exit(EXIT_FAILURE);
+    int i;
+    for (i = 1; i < argc; i++) {
+        printf("%d %d\n", i, argc);
+        printf("%s %s\n", argv[i], argv[2]);
+        if (strcmp(argv[i], "-p") == 0) {
+            printf("test%s\n", argv[i]);
+            if ((servPort = (unsigned short) atoi(argv[++i])) == 0) {
+                fprintf(stderr, "invalid port number.\n");
+                exit(EXIT_FAILURE);
+            }
+        } else if (strcmp(argv[i], "-d") == 0) {
+            // printf("%d\n", strcmp(argv[i], "-d"));
+            // strcpy(DOCUMENT_ROOT, argv[++i]);
+            // printf("%s %s\n", argv[i], argv[2]);
+            // DOCUMENT_ROOT[strlen(argv[i])] = '\0';
+            printf("%s", DOCUMENT_ROOT);
+            DOCUMENT_ROOT = argv[++i];
+            printf("%s", DOCUMENT_ROOT);
+        }
     }
     servSock = startUp(servPort);
     receiveRequest(servSock);
@@ -87,48 +100,55 @@ void receiveRequest(int servSock) {
 }
 
  void sendHttp(int clitSock){
+    int len;
     char buf[BUFSIZE];
     char recieveBuf[BUFSIZE];
-    char method[16]; // メソッド名
-    char uriAddr[256]; // urlのアドレス
-    char httpVer[64]; // HTTP Version
+    char method[16];
+    char uriAddr[256];
+    char httpVer[64];
     char fileDir[256];
-    FILE *file;
+    int fileDesc;
 
     if (read(clitSock, recieveBuf, BUFSIZE) <= 0) {
         fprintf(stderr, "error: reading a request.\n");
     } else {
         sscanf(recieveBuf, "%s %s %s", method, uriAddr, httpVer);
-        printf("method : %s\n", method);
         printf("uriAddr : %s\n", uriAddr);
-        printf("httpVer : %s\n", httpVer);
+
         memset(fileDir, 0, sizeof(fileDir));
-        snprintf(fileDir, sizeof(fileDir), "%s%s",DOCUMENT_ROOT, uriAddr); // ボディ
-        printf("file dir : %s\n",  fileDir);
-        file = fopen(fileDir , "r");
-        
-        if (file == NULL) {
+        snprintf(fileDir, sizeof(fileDir), "%s%s",DOCUMENT_ROOT, uriAddr);
+        if (fileDir[strlen(fileDir) - 1] == '/') {
+            snprintf(fileDir, sizeof(fileDir), "%s%s",fileDir, "index.html");
+        }
+
+        printf("fileDir : %s\n",  fileDir);
+        memset(buf, 0, sizeof(char) * BUFSIZE);
+        if ((fileDesc = open(fileDir, O_RDONLY, 0666)) == -1) {
             printf("NULL\n");
-            memset(buf, 0, sizeof(char) * BUFSIZE);
-            snprintf(buf, sizeof(char) * BUFSIZE,
-                "HTTP/1.0 404 Not Found\r\n" // レスポンスヘッダ
-                "Content-Length: 20\r\n" // 各種ヘッダ
-                "Content-Type: text/html\r\n" // 各種ヘッダ
-                "\r\n" // 空行
-                "404 Not Found\r\n"
-                );
-            send(clitSock, buf, (int)strlen(buf), 0);
+	        sendMessage(clitSock, "404 Not Found");
         } else {
             printf("Exist\n");
-            memset(buf, 0, sizeof(char) * BUFSIZE);
-            snprintf(buf, sizeof(char) * BUFSIZE,
-                "HTTP/1.0 200 OK\r\n" // レスポンスヘッダ
-                "Content-Length: 20\r\n" // 各種ヘッダ
-                "Content-Type: text/html\r\n" // 各種ヘッダ
-                "\r\n" // 空行
-                "HELLO\r\n"); // ボディ
-            send(clitSock, buf, (int)strlen(buf), 0);
+            sendMessage(clitSock, "HTTP/1.0 200 OK\r\n");
+            sendMessage(clitSock, "text/html\r\n");
+            sendMessage(clitSock, "\r\n");
+            // sendMessage(clitSock, "sendMessage\r\n");
+            while((len = read(fileDesc, buf, BUFSIZE)) > 0) {
+                if (write(clitSock, buf, len) != len) {
+                    fprintf(stderr, "error: writing a response.\n");
+                    break;
+                }
+            }
+            close(fileDesc);
         }
-        fclose(file);
-    }
+        close(clitSock);
+    }    
  }
+
+int sendMessage(int fd, char *msg) {
+    int len;
+    len = strlen(msg);
+    if ( write(fd, msg, len) != len ){
+        fprintf(stderr, "error: writing.");
+    }
+    return len;
+}
